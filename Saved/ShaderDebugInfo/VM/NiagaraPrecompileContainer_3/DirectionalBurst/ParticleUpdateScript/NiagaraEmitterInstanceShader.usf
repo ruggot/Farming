@@ -1,0 +1,1169 @@
+#line 1 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+#line 6 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+#pragma warning(disable:4008)
+#line 7 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+#line 1 "/Engine/Public/Platform.ush"
+#line 9 "/Engine/Public/Platform.ush"
+#line 1 "FP16Math.ush"
+#line 10 "/Engine/Public/Platform.ush"
+#line 43 "/Engine/Public/Platform.ush"
+#line 1 "ShaderVersion.ush"
+#line 44 "/Engine/Public/Platform.ush"
+#line 595 "/Engine/Public/Platform.ush"
+float min3( float a, float b, float c )
+{
+	return min( a, min( b, c ) );
+}
+
+float max3( float a, float b, float c )
+{
+	return max( a, max( b, c ) );
+}
+
+float2 min3( float2 a, float2 b, float2 c )
+{
+	return float2(
+		min3( a.x, b.x, c.x ),
+		min3( a.y, b.y, c.y )
+	);
+}
+
+float2 max3( float2 a, float2 b, float2 c )
+{
+	return float2(
+		max3( a.x, b.x, c.x ),
+		max3( a.y, b.y, c.y )
+	);
+}
+
+float3 max3( float3 a, float3 b, float3 c )
+{
+	return float3(
+		max3( a.x, b.x, c.x ),
+		max3( a.y, b.y, c.y ),
+		max3( a.z, b.z, c.z )
+	);
+}
+
+float3 min3( float3 a, float3 b, float3 c )
+{
+	return float3(
+		min3( a.x, b.x, c.x ),
+		min3( a.y, b.y, c.y ),
+		min3( a.z, b.z, c.z )
+	);
+}
+
+float4 min3( float4 a, float4 b, float4 c )
+{
+	return float4(
+		min3( a.x, b.x, c.x ),
+		min3( a.y, b.y, c.y ),
+		min3( a.z, b.z, c.z ),
+		min3( a.w, b.w, c.w )
+	);
+}
+
+float4 max3( float4 a, float4 b, float4 c )
+{
+	return float4(
+		max3( a.x, b.x, c.x ),
+		max3( a.y, b.y, c.y ),
+		max3( a.z, b.z, c.z ),
+		max3( a.w, b.w, c.w )
+	);
+}
+
+
+
+
+float UnpackByte0(uint v) { return float(v & 0xff); }
+float UnpackByte1(uint v) { return float((v >> 8) & 0xff); }
+float UnpackByte2(uint v) { return float((v >> 16) & 0xff); }
+float UnpackByte3(uint v) { return float(v >> 24); }
+#line 8 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+
+
+
+
+
+
+	const static float PI = 3.1415926535897932f;
+
+	const static float TWO_PI = 3.1415926535897932f*2.0f;
+#line 18 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+#line 1 "/Engine/Private/Definitions.usf"
+#line 19 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+
+
+float4 ModuloPrecise(float4 x, float4 y){ return x - y * trunc(x/y); }
+float3 ModuloPrecise(float3 x, float3 y){ return x - y * trunc(x/y); }
+float2 ModuloPrecise(float2 x, float2 y){ return x - y * trunc(x/y);}
+float ModuloPrecise(float x, float y){ return x - y * trunc(x/y); }
+int ModuloPrecise(int x, int y){ return x - y * (x/y); }
+int Modulo(int x, int y){ return x - y * (x/y); }
+
+
+
+float4 Reciprocal(float4 x){ return 1.0f/x;}
+float3 Reciprocal(float3 x){ return 1.0f/x; }
+float2 Reciprocal(float2 x){ return 1.0f/x;}
+float Reciprocal(float x){ return 1.0f/x; }
+
+
+
+bool NiagaraAll(bool b) { return b; }
+bool NiagaraAny(bool b) { return b; }
+
+
+
+
+
+
+
+
+
+bool NiagaraAll(bool2 b) { return b.x && b.y; }
+bool NiagaraAll(bool3 b) { return b.x && b.y && b.z; }
+bool NiagaraAll(bool4 b) { return b.x && b.y && b.z && b.w; }
+bool NiagaraAny(bool2 b) { return b.x || b.y; }
+bool NiagaraAny(bool3 b) { return b.x || b.y || b.z; }
+bool NiagaraAny(bool4 b) { return b.x || b.y || b.z || b.w; }
+#line 193 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+float4 rand4(int Seed1, int Seed2, int Seed3, int Seed4)
+{
+	int4 v = int4(Seed4, Seed1, Seed2, Seed3) * 1664525 + 1013904223;
+
+	v.x += v.y*v.w;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.w += v.y*v.z;
+	v.x += v.y*v.w;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.w += v.y*v.z;
+
+
+
+
+
+
+	return float4((v >> 8) & 0x00ffffff) / 16777216.0;
+
+}
+
+
+
+
+
+
+
+float3 rand3(int Seed1, int Seed2, int Seed3, int Seed4)
+{
+	int3 v = int3(Seed1, Seed2, Seed4 | (Seed3 << 16)) * 1664525 + 1013904223;
+
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+
+	return float3((v >> 8) & 0x00ffffff) / 16777216.0;
+}
+
+
+static int RandomCounterDeterministic = 0;
+
+
+float rand(float x, int Seed1, int Seed2, int Seed3)
+{
+	RandomCounterDeterministic += 1;
+	return rand3(Seed1, Seed2, Seed3, RandomCounterDeterministic).x * x;
+}
+
+
+float2 rand(float2 x, int Seed1, int Seed2, int Seed3)
+{
+	RandomCounterDeterministic += 1;
+	return rand3(Seed1, Seed2, Seed3, RandomCounterDeterministic).xy * x;
+}
+
+
+float3 rand(float3 x, int Seed1, int Seed2, int Seed3)
+{
+	RandomCounterDeterministic += 1;
+	return rand3(Seed1, Seed2, Seed3, RandomCounterDeterministic).xyz * x;
+}
+
+
+float4 rand(float4 x, int Seed1, int Seed2, int Seed3)
+{
+	RandomCounterDeterministic += 1;
+	return rand4(Seed1, Seed2, Seed3, RandomCounterDeterministic).xyzw * x;
+}
+
+
+int rand(int x, int Seed1, int Seed2, int Seed3)
+{
+
+
+	RandomCounterDeterministic += 1;
+	return int(rand3(Seed1, Seed2, Seed3, RandomCounterDeterministic).x * (x+1));
+}
+#line 323 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+	float rand(float x);
+
+	float2 rand(float2 x)
+	{
+		return float2(rand(x.x), rand(x.y));
+	}
+
+	float3 rand(float3 x)
+	{
+		return float3(rand(x.x), rand(x.y), rand(x.z));
+	}
+
+	float4 rand(float4 x)
+	{
+		return float4(rand(x.x), rand(x.y), rand(x.z), rand(x.w));
+	}
+
+	int rand(int x);
+
+
+
+float rand_float(float x)
+{
+	return rand(x.x);
+}
+
+float2 rand_float(float2 x)
+{
+	return float2(rand_float(x.x), rand_float(x.y));
+}
+
+float3 rand_float(float3 x)
+{
+	return float3(rand_float(x.x), rand_float(x.y), rand_float(x.z));
+}
+
+float4 rand_float(float4 x)
+{
+	return float4(rand_float(x.x), rand_float(x.y), rand_float(x.z), rand_float(x.w));
+}
+
+int rand_int(int x)
+{
+
+
+
+	return rand_float(x.x);
+}
+
+
+float rand_float(float x, int Seed1, int Seed2, int Seed3)
+{
+	return rand(x.x, Seed1, Seed2, Seed3);
+}
+
+float2 rand_float(float2 x, int Seed1, int Seed2, int Seed3)
+{
+	return rand(x, Seed1, Seed2, Seed3);
+}
+
+float3 rand_float(float3 x, int Seed1, int Seed2, int Seed3)
+{
+	return rand(x, Seed1, Seed2, Seed3);
+}
+
+float4 rand_float(float4 x, int Seed1, int Seed2, int Seed3)
+{
+	return rand(x, Seed1, Seed2, Seed3);
+}
+
+int rand_int(int x, int Seed1, int Seed2, int Seed3)
+{
+
+
+	return rand(x.x-1, Seed1, Seed2, Seed3);
+}
+#line 405 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+	float noise(float x);
+	float noise(float2 x);
+	float noise(float3 x);
+
+
+
+	float4 Modulo(float4 x, float4 y);
+	float3 Modulo(float3 x, float3 y);
+	float2 Modulo(float2 x, float2 y);
+	float Modulo(float x, float y);
+
+
+	int ExecIndex();
+
+
+
+	int AcquireIndex(int DataSetID, bool DoAcquire);
+
+	void AcquireID(int DataSetID, out int IDIndex, out int IDAcquireTag);
+	void UpdateID(int DataSetID, int IDIndex, int InstanceIndex);
+
+	float InputDataFloat(int DataSetIndex, int RegisterIdx);
+	int InputDataInt(int DataSetIndex, int RegisterIdx);
+	bool InputDataBool(int DataSetIndex, int RegisterIdx);
+
+	float InputDataNoadvanceFloat(int DataSetIndex, int RegisterIdx);
+	int InputDataNoadvanceInt(int DataSetIndex, int RegisterIdx);
+	bool InputDataNoadvanceBool(int DataSetIndex, int RegisterIdx);
+
+	void OutputDataFloat(int DataSetIndex, int RegisterIndex, int InstanceIndex, float Value);
+	void OutputDataInt(int DataSetIndex, int RegisterIndex, int InstanceIndex, int Value);
+	void OutputDataBool(int DataSetIndex, int RegisterIndex, int InstanceIndex, bool Value);
+#line 683 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+	int OutputIndex(const int DataSetID, const bool bStageKillsParticles, const bool bIsValid)
+	{
+#line 698 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+			return AcquireIndex(DataSetID, bIsValid);
+	}
+#line 702 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+#line 1 "/Engine/Generated/NiagaraEmitterInstance.ush"
+
+
+
+
+struct NiagaraID
+{
+	int Index;
+	int AcquireTag;
+};
+
+cbuffer FNiagaraGlobalParameters
+{
+	float Engine_DeltaTime;
+	float Engine_InverseDeltaTime;
+	float Engine_Time;
+	float Engine_RealTime;
+}
+
+cbuffer FNiagaraSystemParameters
+{
+	float Engine_Owner_TimeSinceRendered;
+	float Engine_Owner_LODDistance;
+	float Engine_Owner_LODDistanceFraction;
+	float Engine_System_Age;
+	int Engine_Owner_ExecutionState;
+	int Engine_System_TickCount;
+	int Engine_System_NumEmitters;
+	int Engine_System_NumEmittersAlive;
+}
+
+cbuffer FNiagaraOwnerParameters
+{
+	float4x4 Engine_Owner_SystemLocalToWorld;
+	float4x4 Engine_Owner_SystemWorldToLocal;
+	float4x4 Engine_Owner_SystemLocalToWorldTransposed;
+	float4x4 Engine_Owner_SystemWorldToLocalTransposed;
+	float4x4 Engine_Owner_SystemLocalToWorldNoScale;
+	float4x4 Engine_Owner_SystemWorldToLocalNoScale;
+	float4 Engine_Owner_Rotation;
+	float4 Engine_Owner_Position;
+	float4 Engine_Owner_Velocity;
+	float4 Engine_Owner_SystemXAxis;
+	float4 Engine_Owner_SystemYAxis;
+	float4 Engine_Owner_SystemZAxis;
+	float4 Engine_Owner_Scale;
+}
+
+cbuffer FNiagaraEmitterParameters
+{
+	int Engine_Emitter_NumParticles;
+	int Engine_Emitter_TotalSpawnedParticles;
+	float Engine_Emitter_SpawnCountScale;
+	float Emitter_Age;
+	int Emitter_RandomSeed;
+	int Engine_Emitter_PaddingInt32_0;
+	int Engine_Emitter_PaddingInt32_1;
+	int Engine_Emitter_PaddingInt32_2;
+}
+
+cbuffer FNiagaraExternalParameters
+{
+	float3 Constants_Emitter_GravityForce_Gravity;
+	float Constants_Emitter_Drag_Drag;
+	float Constants_Emitter_Drag_RotationalDrag;
+	float Constants_Emitter_SolveForcesAndVelocity_SpeedLimit;
+	float Constants_Emitter_SolveForcesAndVelocity_AccelerationLimit;
+	float Constants_Emitter_ScaleColorBySpeed_MinSpeedThreshold;
+	float Constants_Emitter_ScaleColorBySpeed_MaxSpeedThreshold;
+	float Constants_Emitter_ScaleColorBySpeed_RGBScaleMin;
+	float Constants_Emitter_ScaleColorBySpeed_RGBScaleMax;
+	float Constants_Emitter_ScaleColorBySpeed_AScaleMin;
+	float Constants_Emitter_ScaleColorBySpeed_AScaleMax;
+	float Constants_Emitter_ScaleMeshSizeBySpeed_SpeedThreshold;
+	float3 Constants_Emitter_ScaleMeshSizeBySpeed_MinScaleFactor;
+	float3 Constants_Emitter_ScaleMeshSizeBySpeed_MaxScaleFactor;
+}
+
+struct FParamMap0_Transient
+{
+	float3 MeshScaleFactor;
+	float4 ParticleColorScaleFactor;
+	float PhysicsDeltaTime;
+	float PhysicsDrag;
+	float3 PhysicsForce;
+	float PhysicsRotationalDrag;
+};
+
+struct FParamMap0_SolveForcesAndVelocity
+{
+	float AccelerationLimit;
+	float DeltaTime;
+	float3 Force;
+	float Mass;
+	float3 Position;
+	float3 PreviousVelocity;
+	float SpeedLimit;
+	float3 Velocity;
+	bool WritetoIntrinsicProperties;
+};
+
+struct FParamMap0_ScaleMeshSizeBySpeed
+{
+	float3 InitialMeshScale;
+	float3 MaxScaleFactor;
+	float3 MinScaleFactor;
+	bool SampleScaleFactorByCurve;
+	float3 SourceVelocity;
+	float SpeedThreshold;
+};
+
+struct FParamMap0_ScaleColorBySpeed
+{
+	float AScaleMax;
+	float AScaleMin;
+	float MaxSpeedThreshold;
+	float MinSpeedThreshold;
+	float RGBScaleMax;
+	float RGBScaleMin;
+	float3 SourceVelocity;
+};
+
+struct FParamMap0_ParticleState
+{
+	float DeltaTime;
+	float Lifetime;
+};
+
+struct FParamMap0_Particles_Initial
+{
+	float4 Color;
+	float3 Scale;
+};
+
+struct FParamMap0_Particles
+{
+	float Age;
+	float4 Color;
+	FParamMap0_Particles_Initial Initial;
+	float Lifetime;
+	float Mass;
+	float MaterialRandom;
+	float NormalizedAge;
+	float3 Position;
+	float3 PreviousVelocity;
+	float3 Scale;
+	float SpriteRotation;
+	float2 SpriteSize;
+	int UniqueID;
+	float3 Velocity;
+};
+
+struct FParamMap0_OUTPUT_VAR_SolveForcesAndVelocity
+{
+	float IncomingPhysicsDrag;
+	float3 IncomingPhysicsForce;
+	float3 Position;
+	float3 Velocity;
+};
+
+struct FParamMap0_OUTPUT_VAR_ParticleState
+{
+	bool FirstFrame;
+};
+
+struct FParamMap0_OUTPUT_VAR
+{
+	FParamMap0_OUTPUT_VAR_ParticleState ParticleState;
+	FParamMap0_OUTPUT_VAR_SolveForcesAndVelocity SolveForcesAndVelocity;
+};
+
+struct FParamMap0_Local_SolveForcesAndVelocity
+{
+	float DeltaTime;
+	float Mass;
+	float3 PhysicsForce;
+};
+
+struct FParamMap0_Local_ScaleMeshSizeBySpeed
+{
+	float NormalizedVelocityRange;
+};
+
+struct FParamMap0_Local_ScaleColorBySpeed
+{
+	float SpeedScaleFactor;
+};
+
+struct FParamMap0_Local
+{
+	FParamMap0_Local_ScaleColorBySpeed ScaleColorBySpeed;
+	FParamMap0_Local_ScaleMeshSizeBySpeed ScaleMeshSizeBySpeed;
+	FParamMap0_Local_SolveForcesAndVelocity SolveForcesAndVelocity;
+};
+
+struct FParamMap0_GravityForce
+{
+	float3 Gravity;
+};
+
+struct FParamMap0_Engine_System
+{
+	float Age;
+	int NumEmitters;
+	int NumEmittersAlive;
+	int TickCount;
+};
+
+struct FParamMap0_Engine_Owner
+{
+	int ExecutionState;
+	float LODDistance;
+	float LODDistanceFraction;
+	float3 Position;
+	float4 Rotation;
+	float3 Scale;
+	float4x4 SystemLocalToWorld;
+	float4x4 SystemLocalToWorldNoScale;
+	float4x4 SystemLocalToWorldTransposed;
+	float4x4 SystemWorldToLocal;
+	float4x4 SystemWorldToLocalNoScale;
+	float4x4 SystemWorldToLocalTransposed;
+	float3 SystemXAxis;
+	float3 SystemYAxis;
+	float3 SystemZAxis;
+	float TimeSinceRendered;
+	float3 Velocity;
+};
+
+struct FParamMap0_Engine_Emitter
+{
+	int NumParticles;
+	int PaddingInt32_0;
+	int PaddingInt32_1;
+	int PaddingInt32_2;
+	float SpawnCountScale;
+	int TotalSpawnedParticles;
+};
+
+struct FParamMap0_Engine
+{
+	float DeltaTime;
+	FParamMap0_Engine_Emitter Emitter;
+	float InverseDeltaTime;
+	FParamMap0_Engine_Owner Owner;
+	float RealTime;
+	FParamMap0_Engine_System System;
+	float Time;
+};
+
+struct FParamMap0_Emitter
+{
+	float Age;
+	bool LocalSpace;
+	int RandomSeed;
+};
+
+struct FParamMap0_Drag
+{
+	float Drag;
+	float RotationalDrag;
+};
+
+struct FParamMap0_DataInstance
+{
+	bool Alive;
+};
+
+struct FParamMap0_Constants_Emitter_SolveForcesAndVelocity
+{
+	float AccelerationLimit;
+	float SpeedLimit;
+};
+
+struct FParamMap0_Constants_Emitter_ScaleMeshSizeBySpeed
+{
+	float3 MaxScaleFactor;
+	float3 MinScaleFactor;
+	float SpeedThreshold;
+};
+
+struct FParamMap0_Constants_Emitter_ScaleColorBySpeed
+{
+	float AScaleMax;
+	float AScaleMin;
+	float MaxSpeedThreshold;
+	float MinSpeedThreshold;
+	float RGBScaleMax;
+	float RGBScaleMin;
+};
+
+struct FParamMap0_Constants_Emitter_GravityForce
+{
+	float3 Gravity;
+};
+
+struct FParamMap0_Constants_Emitter_Drag
+{
+	float Drag;
+	float RotationalDrag;
+};
+
+struct FParamMap0_Constants_Emitter
+{
+	FParamMap0_Constants_Emitter_Drag Drag;
+	FParamMap0_Constants_Emitter_GravityForce GravityForce;
+	FParamMap0_Constants_Emitter_ScaleColorBySpeed ScaleColorBySpeed;
+	FParamMap0_Constants_Emitter_ScaleMeshSizeBySpeed ScaleMeshSizeBySpeed;
+	FParamMap0_Constants_Emitter_SolveForcesAndVelocity SolveForcesAndVelocity;
+};
+
+struct FParamMap0_Constants
+{
+	FParamMap0_Constants_Emitter Emitter;
+};
+
+struct FParamMap0
+{
+	FParamMap0_Constants Constants;
+	FParamMap0_DataInstance DataInstance;
+	FParamMap0_Drag Drag;
+	FParamMap0_Emitter Emitter;
+	FParamMap0_Engine Engine;
+	FParamMap0_GravityForce GravityForce;
+	FParamMap0_Local Local;
+	FParamMap0_OUTPUT_VAR OUTPUT_VAR;
+	FParamMap0_Particles Particles;
+	FParamMap0_ParticleState ParticleState;
+	FParamMap0_ScaleColorBySpeed ScaleColorBySpeed;
+	FParamMap0_ScaleMeshSizeBySpeed ScaleMeshSizeBySpeed;
+	FParamMap0_SolveForcesAndVelocity SolveForcesAndVelocity;
+	FParamMap0_Transient Transient;
+};
+
+struct FSimulationContext
+{
+	FParamMap0 Map;
+};
+
+static float HackSpawnInterp = 1.0;
+void ParticleState_Emitter_Func_(inout FSimulationContext Context);
+void TransformBase_Func_(int In_SourceSpace, int In_DestinationSpace, float4x4 In_LocalToWorldTransform, float4x4 In_WorldToLocalTransform, bool In_bLocalSpace, out bool Out_bUseOriginal, out float4x4 Out_OutTransform, inout FSimulationContext Context);
+void GravityForce_NF_TransformVector_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context);
+void GravityForce_Emitter_Func_(inout FSimulationContext Context);
+void Drag_Emitter_Func_(inout FSimulationContext Context);
+void SolveForcesAndVelocity_Emitter_Func_(inout FSimulationContext Context);
+void DirectionAndLengthSafe_Func_(float3 In_V, float3 In_Fallback, float In_Threshold, float In_FallbackLength, out float3 Out_Direction, out float Out_Length, out bool Out_BelowThreshold, inout FSimulationContext Context);
+void ScaleColorBySpeed_Emitter_Func_(inout FSimulationContext Context);
+void SampleCurve_EmitterScaleFactorCurve(float In_X, out float Out_Value);
+void ScaleMeshSizeBySpeed_Emitter_Func_(inout FSimulationContext Context);
+float GetSpawnInterpolation();
+void ParticleState_Emitter_Func_(inout FSimulationContext Context)
+{
+	bool Result = NiagaraAll(Context.Map.Particles.Age <= Context.Map.Engine.DeltaTime);
+	Context.Map.OUTPUT_VAR.ParticleState.FirstFrame = Result;
+	float Result1 = Context.Map.Particles.Age + Context.Map.ParticleState.DeltaTime;
+	float Constant1 = 1e-05;
+	float Result2 = max(Context.Map.ParticleState.Lifetime, Constant1);
+	float Constant2 = 0.0001;
+	float Result3 = Result2 - Constant2;
+	bool Result4 = NiagaraAll(Result1 < Result3);
+	bool Constant3 = false;
+	bool bool_IfResult;
+	if(Result4)
+	{
+	bool_IfResult = Context.Map.DataInstance.Alive;
+	}
+	else
+	{
+	bool_IfResult = Constant3;
+	}
+	float Result5 = Result1 / Result2;
+	Context.Map.DataInstance.Alive = bool_IfResult;
+	Context.Map.Particles.Age = Result1;
+	Context.Map.Particles.NormalizedAge = Result5;
+}
+
+void TransformBase_Func_(int In_SourceSpace, int In_DestinationSpace, float4x4 In_LocalToWorldTransform, float4x4 In_WorldToLocalTransform, bool In_bLocalSpace, out bool Out_bUseOriginal, out float4x4 Out_OutTransform, inout FSimulationContext Context)
+{
+	int Constant10 = 0;
+	bool Result7 = NiagaraAll(In_SourceSpace == Constant10);
+	int Constant11 = 0;
+	bool Result8 = NiagaraAll(In_DestinationSpace == Constant11);
+	bool Result9 = Result7 && Result8;
+	int Constant12 = 1;
+	bool Result10 = NiagaraAll(In_SourceSpace == Constant12);
+	int Constant13 = 1;
+	bool Result11 = NiagaraAll(In_DestinationSpace == Constant13);
+	bool Result12 = Result10 && Result11;
+	bool Result13 = Result9 || Result12;
+	int Constant14 = 2;
+	bool Result14 = NiagaraAll(In_SourceSpace == Constant14);
+	int Constant15 = 2;
+	bool Result15 = NiagaraAll(In_DestinationSpace == Constant15);
+	bool Result16 = Result14 && Result15;
+	bool Result17 = Result13 || Result16;
+	bool Result18 = Result7 && Result15;
+	bool Result19 = Result14 && Result8;
+	bool Result20 = Result18 || Result19;
+	bool Result21 = In_bLocalSpace && Result20;
+	bool Result22 = Result17 || Result21;
+	bool Result23 = !In_bLocalSpace;
+	bool Result24 = Result7 && Result11;
+	bool Result25 = Result10 && Result8;
+	bool Result26 = Result24 || Result25;
+	bool Result27 = Result23 && Result26;
+	bool Result28 = Result22 || Result27;
+	bool Result29 = In_bLocalSpace && Result24;
+	bool Result30 = Result14 && Result11;
+	bool Result31 = Result29 || Result30;
+	bool Result32 = Result23 && Result19;
+	bool Result33 = Result31 || Result32;
+	float4x4 Matrix_IfResult1;
+	if(Result33)
+	{
+	Matrix_IfResult1 = In_LocalToWorldTransform;
+	}
+	else
+	{
+	Matrix_IfResult1 = In_WorldToLocalTransform;
+	}
+	Out_bUseOriginal = Result28;
+	Out_OutTransform = Matrix_IfResult1;
+}
+
+void GravityForce_NF_TransformVector_Emitter_Func_(float3 In_InVector, int In_SourceSpace, int In_DestinationSpace, bool In_ApplyScale, out float3 Out_OutVector, inout FSimulationContext Context)
+{
+	bool Constant9 = true;
+	float4x4 Matrix_IfResult;
+	float4x4 Matrix001_IfResult;
+	if(In_ApplyScale)
+	{
+	Matrix_IfResult = Context.Map.Engine.Owner.SystemLocalToWorld;
+	Matrix001_IfResult = Context.Map.Engine.Owner.SystemWorldToLocal;
+	}
+	else
+	{
+	Matrix_IfResult = Context.Map.Engine.Owner.SystemLocalToWorldNoScale;
+	Matrix001_IfResult = Context.Map.Engine.Owner.SystemWorldToLocalNoScale;
+	}
+	bool TransformBase_Func_Output_bUseOriginal;
+	float4x4 TransformBase_Func_Output_OutTransform;
+	TransformBase_Func_(In_SourceSpace, In_DestinationSpace, Matrix_IfResult, Matrix001_IfResult, Constant9, TransformBase_Func_Output_bUseOriginal, TransformBase_Func_Output_OutTransform, Context);
+	float3 Result34 = mul(float4(In_InVector,0.0),TransformBase_Func_Output_OutTransform).xyz;
+	float3 Vector_IfResult;
+	if(TransformBase_Func_Output_bUseOriginal)
+	{
+	Vector_IfResult = In_InVector;
+	}
+	else
+	{
+	Vector_IfResult = Result34;
+	}
+	Out_OutVector = Vector_IfResult;
+}
+
+void GravityForce_Emitter_Func_(inout FSimulationContext Context)
+{
+	float3 Result6 = Context.Map.Constants.Emitter.GravityForce.Gravity * Context.Map.Particles.Mass;
+	int Constant6 = 1;
+	int Constant7 = 0;
+	bool Constant8 = false;
+	float3 GravityForce_NF_TransformVector_Emitter_Func_Output_OutVector;
+	GravityForce_NF_TransformVector_Emitter_Func_(Result6, Constant6, Constant7, Constant8, GravityForce_NF_TransformVector_Emitter_Func_Output_OutVector, Context);
+	float3 Result35 = Context.Map.Transient.PhysicsForce + GravityForce_NF_TransformVector_Emitter_Func_Output_OutVector;
+	Context.Map.Transient.PhysicsForce = Result35;
+}
+
+void Drag_Emitter_Func_(inout FSimulationContext Context)
+{
+	float Result36 = Context.Map.Constants.Emitter.Drag.Drag + Context.Map.Transient.PhysicsDrag;
+	Context.Map.Transient.PhysicsDrag = Result36;
+	Context.Map.Transient.PhysicsRotationalDrag = Context.Map.Transient.PhysicsRotationalDrag;
+}
+
+void SolveForcesAndVelocity_Emitter_Func_(inout FSimulationContext Context)
+{
+	Context.Map.Local.SolveForcesAndVelocity.DeltaTime = Context.Map.SolveForcesAndVelocity.DeltaTime;
+	Context.Map.Local.SolveForcesAndVelocity.PhysicsForce = Context.Map.SolveForcesAndVelocity.Force;
+	Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.IncomingPhysicsForce = Context.Map.SolveForcesAndVelocity.Force;
+	Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Velocity = Context.Map.SolveForcesAndVelocity.Velocity;
+	Context.Map.Local.SolveForcesAndVelocity.Mass = Context.Map.SolveForcesAndVelocity.Mass;
+	float Constant24 = 0.0001;
+	float Result37 = max(Context.Map.Local.SolveForcesAndVelocity.Mass, Constant24);
+	float Result38 = Reciprocal(Result37);
+	float3 Result39 = Result38 * Context.Map.Local.SolveForcesAndVelocity.PhysicsForce;
+	Context.Map.Local.SolveForcesAndVelocity.PhysicsForce = Result39;
+	float3 Result40 = Context.Map.Local.SolveForcesAndVelocity.PhysicsForce * Context.Map.Local.SolveForcesAndVelocity.DeltaTime + Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Velocity;
+	float Constant25 = 0;
+	float Result41 = max(Context.Map.Transient.PhysicsDrag, Constant25);
+	float Result42 = Context.Map.Local.SolveForcesAndVelocity.DeltaTime * Result41;
+	float Constant26 = 1;
+	float Result43 = Result42 + Constant26;
+	float3 Result44 = Result40 / Result43;
+	Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Velocity = Result44;
+	Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.IncomingPhysicsDrag = Context.Map.Transient.PhysicsDrag;
+	Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Velocity = Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Velocity;
+	Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Velocity = Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Velocity;
+	float3 Result45 = Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Velocity * Context.Map.Local.SolveForcesAndVelocity.DeltaTime + Context.Map.SolveForcesAndVelocity.Position;
+	Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Position = Result45;
+	float3 Position_IfResult;
+	float3 Velocity_IfResult;
+	float3 PreviousVelocity_IfResult;
+	if(Context.Map.SolveForcesAndVelocity.WritetoIntrinsicProperties)
+	{
+	Position_IfResult = Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Position;
+	Velocity_IfResult = Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Velocity;
+	PreviousVelocity_IfResult = Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Velocity;
+	}
+	else
+	{
+	Position_IfResult = Context.Map.SolveForcesAndVelocity.Position;
+	Velocity_IfResult = Context.Map.SolveForcesAndVelocity.Velocity;
+	PreviousVelocity_IfResult = Context.Map.SolveForcesAndVelocity.PreviousVelocity;
+	}
+	Context.Map.Particles.Position = Position_IfResult;
+	Context.Map.Particles.Velocity = Velocity_IfResult;
+	Context.Map.Particles.PreviousVelocity = PreviousVelocity_IfResult;
+	float3 Constant27 = float3(0,0,0);
+	float Constant28 = 0;
+	float3 ForceVector_IfResult;
+	float Drag_IfResult;
+	if(Context.Map.SolveForcesAndVelocity.WritetoIntrinsicProperties)
+	{
+	ForceVector_IfResult = Constant27;
+	Drag_IfResult = Constant28;
+	}
+	else
+	{
+	ForceVector_IfResult = Context.Map.Transient.PhysicsForce;
+	Drag_IfResult = Context.Map.Transient.PhysicsDrag;
+	}
+	Context.Map.Transient.PhysicsForce = ForceVector_IfResult;
+	Context.Map.Transient.PhysicsDrag = Drag_IfResult;
+}
+
+void DirectionAndLengthSafe_Func_(float3 In_V, float3 In_Fallback, float In_Threshold, float In_FallbackLength, out float3 Out_Direction, out float Out_Length, out bool Out_BelowThreshold, inout FSimulationContext Context)
+{
+	float Result46 = length(In_V);
+	bool Result47 = NiagaraAll(Result46 < In_Threshold);
+	float Result48 = length(In_Fallback);
+	float3 Vector_IfResult1;
+	float float_IfResult;
+	if(Result47)
+	{
+	Vector_IfResult1 = In_Fallback;
+	float_IfResult = In_FallbackLength;
+	}
+	else
+	{
+	Vector_IfResult1 = In_V;
+	float_IfResult = Result46;
+	}
+	float3 Result49 = Vector_IfResult1 / float_IfResult;
+	float3 Vector_IfResult2;
+	float float_IfResult1;
+	if(Result47)
+	{
+	Vector_IfResult2 = In_Fallback;
+	float_IfResult1 = Result48;
+	}
+	else
+	{
+	Vector_IfResult2 = Result49;
+	float_IfResult1 = float_IfResult;
+	}
+	Out_Direction = Vector_IfResult2;
+	Out_Length = float_IfResult1;
+	Out_BelowThreshold = Result47;
+}
+
+void ScaleColorBySpeed_Emitter_Func_(inout FSimulationContext Context)
+{
+	float3 Constant31 = float3(0,0,1);
+	float Constant32 = 1e-05;
+	float Constant33 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction;
+	float DirectionAndLengthSafe_Func_Output_Length;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold;
+	DirectionAndLengthSafe_Func_(Context.Map.ScaleColorBySpeed.SourceVelocity, Constant31, Constant32, Constant33, DirectionAndLengthSafe_Func_Output_Direction, DirectionAndLengthSafe_Func_Output_Length, DirectionAndLengthSafe_Func_Output_BelowThreshold, Context);
+	float Result50 = DirectionAndLengthSafe_Func_Output_Length - Context.Map.Constants.Emitter.ScaleColorBySpeed.MinSpeedThreshold;
+	float Constant34 = 0.0001;
+	float Result51 = max(Result50, Constant34);
+	float Result52 = Context.Map.Constants.Emitter.ScaleColorBySpeed.MaxSpeedThreshold - Context.Map.Constants.Emitter.ScaleColorBySpeed.MinSpeedThreshold;
+	float Constant35 = 0.0001;
+	float Result53 = max(Result52, Constant35);
+	float Result54 = Result51 / Result53;
+	float Constant36 = 0;
+	float Constant37 = 1;
+	float Result55 = clamp(Result54,Constant36,Constant37);
+	float Result56 = 1 - Result55;
+	Context.Map.Local.ScaleColorBySpeed.SpeedScaleFactor = Result56;
+	float Result57 = lerp(Context.Map.Constants.Emitter.ScaleColorBySpeed.RGBScaleMin,Context.Map.Constants.Emitter.ScaleColorBySpeed.RGBScaleMax,Context.Map.Local.ScaleColorBySpeed.SpeedScaleFactor);
+	float Result58 = lerp(Context.Map.Constants.Emitter.ScaleColorBySpeed.AScaleMin,Context.Map.Constants.Emitter.ScaleColorBySpeed.AScaleMax,Context.Map.Local.ScaleColorBySpeed.SpeedScaleFactor);
+	float4 Output1;
+	Output1.r = Result57;
+	Output1.g = Result57;
+	Output1.b = Result57;
+	Output1.a = Result58;
+	float4 Result59 = Context.Map.Transient.ParticleColorScaleFactor * Output1;
+	float4 Result60 = Result59 * Context.Map.Particles.Initial.Color;
+	Context.Map.Transient.ParticleColorScaleFactor = Result59;
+	Context.Map.Particles.Color = Result60;
+}
+
+void ScaleMeshSizeBySpeed_Emitter_Func_(inout FSimulationContext Context)
+{
+	float3 Constant41 = float3(0,0,1);
+	float Constant42 = 1e-05;
+	float Constant43 = 1;
+	float3 DirectionAndLengthSafe_Func_Output_Direction1;
+	float DirectionAndLengthSafe_Func_Output_Length1;
+	bool DirectionAndLengthSafe_Func_Output_BelowThreshold1;
+	DirectionAndLengthSafe_Func_(Context.Map.ScaleMeshSizeBySpeed.SourceVelocity, Constant41, Constant42, Constant43, DirectionAndLengthSafe_Func_Output_Direction1, DirectionAndLengthSafe_Func_Output_Length1, DirectionAndLengthSafe_Func_Output_BelowThreshold1, Context);
+	float Constant44 = 0;
+	float float_IfResult2;
+	if(DirectionAndLengthSafe_Func_Output_BelowThreshold1)
+	{
+	float_IfResult2 = Constant44;
+	}
+	else
+	{
+	float_IfResult2 = DirectionAndLengthSafe_Func_Output_Length1;
+	}
+	float Constant45 = 0.0001;
+	float Constant46 = 0.0001;
+	float Result61 = max(Context.Map.Constants.Emitter.ScaleMeshSizeBySpeed.SpeedThreshold, Constant46);
+	float Result62 = clamp(float_IfResult2,Constant45,Result61);
+	float Result63 = Result62 / Result61;
+	Context.Map.Local.ScaleMeshSizeBySpeed.NormalizedVelocityRange = Result63;
+	float SampleCurve_EmitterScaleFactorCurveOutput_Value;
+	SampleCurve_EmitterScaleFactorCurve(Context.Map.Local.ScaleMeshSizeBySpeed.NormalizedVelocityRange, SampleCurve_EmitterScaleFactorCurveOutput_Value);
+	float float_IfResult3;
+	if(Context.Map.ScaleMeshSizeBySpeed.SampleScaleFactorByCurve)
+	{
+	float_IfResult3 = SampleCurve_EmitterScaleFactorCurveOutput_Value;
+	}
+	else
+	{
+	float_IfResult3 = Context.Map.Local.ScaleMeshSizeBySpeed.NormalizedVelocityRange;
+	}
+	float Constant47 = 0;
+	float Constant48 = 1;
+	float Result64 = clamp(float_IfResult3,Constant47,Constant48);
+	Context.Map.Local.ScaleMeshSizeBySpeed.NormalizedVelocityRange = Result64;
+	float3 Result65 = lerp(Context.Map.Constants.Emitter.ScaleMeshSizeBySpeed.MinScaleFactor,Context.Map.Constants.Emitter.ScaleMeshSizeBySpeed.MaxScaleFactor,Context.Map.Local.ScaleMeshSizeBySpeed.NormalizedVelocityRange);
+	float3 Result66 = Result65 * Context.Map.Transient.MeshScaleFactor;
+	float3 Result67 = Result66 * Context.Map.ScaleMeshSizeBySpeed.InitialMeshScale;
+	Context.Map.Transient.MeshScaleFactor = Result66;
+	Context.Map.Particles.Scale = Result67;
+}
+
+float GetSpawnInterpolation()
+{
+	return 1.0f;}
+
+
+void ReadDataSets(inout FSimulationContext Context)
+{
+}
+
+void WriteDataSets(inout FSimulationContext Context)
+{
+}
+
+void Simulate(inout FSimulationContext Context)
+{
+	EnterStatScope(0 );
+
+
+	bool Constant = true;
+	Context.Map.DataInstance.Alive = Constant;
+	Context.Map.ParticleState.DeltaTime = Context.Map.Engine.DeltaTime;
+	Context.Map.ParticleState.Lifetime = Context.Map.Particles.Lifetime;
+	EnterStatScope(1 );
+	ParticleState_Emitter_Func_(Context);
+	ExitStatScope( );
+	float3 Constant4 = float3(0,0,0);
+	Context.Map.Transient.PhysicsForce = Constant4;
+	bool Constant5 = true;
+	EnterStatScope(2 );
+	GravityForce_Emitter_Func_(Context);
+	ExitStatScope( );
+	float Constant16 = 0;
+	Context.Map.Transient.PhysicsDrag = Constant16;
+	float Constant17 = 0;
+	Context.Map.Transient.PhysicsRotationalDrag = Constant17;
+	EnterStatScope(3 );
+	Drag_Emitter_Func_(Context);
+	ExitStatScope( );
+	Context.Map.Transient.PhysicsDeltaTime = Context.Map.Engine.DeltaTime;
+	Context.Map.SolveForcesAndVelocity.DeltaTime = Context.Map.Transient.PhysicsDeltaTime;
+	float Constant18 = (0.0);
+	Context.Map.Local.SolveForcesAndVelocity.DeltaTime = Constant18;
+	Context.Map.SolveForcesAndVelocity.Force = Context.Map.Transient.PhysicsForce;
+	Context.Map.SolveForcesAndVelocity.Velocity = Context.Map.Particles.Velocity;
+	Context.Map.SolveForcesAndVelocity.Mass = Context.Map.Particles.Mass;
+	float3 Constant19 = float3(0.0, 0.0, 0.0);
+	Context.Map.Local.SolveForcesAndVelocity.PhysicsForce = Constant19;
+	float3 Constant20 = float3(0.0, 0.0, 0.0);
+	Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Velocity = Constant20;
+	float Constant21 = (0.0);
+	Context.Map.Local.SolveForcesAndVelocity.Mass = Constant21;
+	Context.Map.SolveForcesAndVelocity.PreviousVelocity = Context.Map.Particles.PreviousVelocity;
+	Context.Map.SolveForcesAndVelocity.Position = Context.Map.Particles.Position;
+	float3 Constant22 = float3(0.0, 0.0, 0.0);
+	Context.Map.OUTPUT_VAR.SolveForcesAndVelocity.Position = Constant22;
+	bool Constant23 = true;
+	Context.Map.SolveForcesAndVelocity.WritetoIntrinsicProperties = Constant23;
+	EnterStatScope(4 );
+	SolveForcesAndVelocity_Emitter_Func_(Context);
+	ExitStatScope( );
+	Context.Map.ScaleColorBySpeed.SourceVelocity = Context.Map.Particles.Velocity;
+	float Constant29 = (0.0);
+	Context.Map.Local.ScaleColorBySpeed.SpeedScaleFactor = Constant29;
+	float4 Constant30 = float4(1,1,1,1);
+	Context.Map.Transient.ParticleColorScaleFactor = Constant30;
+	EnterStatScope(5 );
+	ScaleColorBySpeed_Emitter_Func_(Context);
+	ExitStatScope( );
+	Context.Map.ScaleMeshSizeBySpeed.SourceVelocity = Context.Map.Particles.Velocity;
+	float Constant38 = (0.0);
+	Context.Map.Local.ScaleMeshSizeBySpeed.NormalizedVelocityRange = Constant38;
+	bool Constant39 = false;
+	Context.Map.ScaleMeshSizeBySpeed.SampleScaleFactorByCurve = Constant39;
+	float3 Constant40 = float3(1,1,1);
+	Context.Map.Transient.MeshScaleFactor = Constant40;
+	Context.Map.ScaleMeshSizeBySpeed.InitialMeshScale = Context.Map.Particles.Initial.Scale;
+	EnterStatScope(6 );
+	ScaleMeshSizeBySpeed_Emitter_Func_(Context);
+	ExitStatScope( );
+	ExitStatScope( );
+}
+void SimulateMain()
+{
+EnterStatScope(7 );
+
+	FSimulationContext Context = (FSimulationContext)0;
+	Context.Map.Particles.Age = InputDataFloat(0, 0);
+	Context.Map.Particles.Color.r = InputDataFloat(0, 1);
+	Context.Map.Particles.Color.g = InputDataFloat(0, 2);
+	Context.Map.Particles.Color.b = InputDataFloat(0, 3);
+	Context.Map.Particles.Color.a = InputDataFloat(0, 4);
+	Context.Map.Particles.Initial.Color.r = InputDataFloat(0, 5);
+	Context.Map.Particles.Initial.Color.g = InputDataFloat(0, 6);
+	Context.Map.Particles.Initial.Color.b = InputDataFloat(0, 7);
+	Context.Map.Particles.Initial.Color.a = InputDataFloat(0, 8);
+	Context.Map.Particles.Initial.Scale.x = InputDataFloat(0, 9);
+	Context.Map.Particles.Initial.Scale.y = InputDataFloat(0, 10);
+	Context.Map.Particles.Initial.Scale.z = InputDataFloat(0, 11);
+	Context.Map.Particles.Lifetime = InputDataFloat(0, 12);
+	Context.Map.Particles.Mass = InputDataFloat(0, 13);
+	Context.Map.Particles.MaterialRandom = InputDataFloat(0, 14);
+	Context.Map.Particles.NormalizedAge = InputDataFloat(0, 15);
+	Context.Map.Particles.Position.x = InputDataFloat(0, 16);
+	Context.Map.Particles.Position.y = InputDataFloat(0, 17);
+	Context.Map.Particles.Position.z = InputDataFloat(0, 18);
+	Context.Map.Particles.PreviousVelocity.x = InputDataFloat(0, 19);
+	Context.Map.Particles.PreviousVelocity.y = InputDataFloat(0, 20);
+	Context.Map.Particles.PreviousVelocity.z = InputDataFloat(0, 21);
+	Context.Map.Particles.Scale.x = InputDataFloat(0, 22);
+	Context.Map.Particles.Scale.y = InputDataFloat(0, 23);
+	Context.Map.Particles.Scale.z = InputDataFloat(0, 24);
+	Context.Map.Particles.SpriteRotation = InputDataFloat(0, 25);
+	Context.Map.Particles.SpriteSize.x = InputDataFloat(0, 26);
+	Context.Map.Particles.SpriteSize.y = InputDataFloat(0, 27);
+	Context.Map.Particles.UniqueID = InputDataInt(0, 28);
+	Context.Map.Particles.Velocity.x = InputDataFloat(0, 29);
+	Context.Map.Particles.Velocity.y = InputDataFloat(0, 30);
+	Context.Map.Particles.Velocity.z = InputDataFloat(0, 31);
+	Context.Map.Engine.DeltaTime = Engine_DeltaTime;
+	Context.Map.Constants.Emitter.GravityForce.Gravity = Constants_Emitter_GravityForce_Gravity;
+	Context.Map.Engine.Owner.SystemLocalToWorld = Engine_Owner_SystemLocalToWorld;
+	Context.Map.Engine.Owner.SystemWorldToLocal = Engine_Owner_SystemWorldToLocal;
+	Context.Map.Engine.Owner.SystemLocalToWorldNoScale = Engine_Owner_SystemLocalToWorldNoScale;
+	Context.Map.Engine.Owner.SystemWorldToLocalNoScale = Engine_Owner_SystemWorldToLocalNoScale;
+	Context.Map.Constants.Emitter.Drag.Drag = Constants_Emitter_Drag_Drag;
+	Context.Map.Constants.Emitter.Drag.RotationalDrag = Constants_Emitter_Drag_RotationalDrag;
+	Context.Map.Constants.Emitter.SolveForcesAndVelocity.SpeedLimit = Constants_Emitter_SolveForcesAndVelocity_SpeedLimit;
+	Context.Map.Constants.Emitter.SolveForcesAndVelocity.AccelerationLimit = Constants_Emitter_SolveForcesAndVelocity_AccelerationLimit;
+	Context.Map.Engine.Owner.Position = Engine_Owner_Position.xyz;
+	Context.Map.Constants.Emitter.ScaleColorBySpeed.MinSpeedThreshold = Constants_Emitter_ScaleColorBySpeed_MinSpeedThreshold;
+	Context.Map.Constants.Emitter.ScaleColorBySpeed.MaxSpeedThreshold = Constants_Emitter_ScaleColorBySpeed_MaxSpeedThreshold;
+	Context.Map.Constants.Emitter.ScaleColorBySpeed.RGBScaleMin = Constants_Emitter_ScaleColorBySpeed_RGBScaleMin;
+	Context.Map.Constants.Emitter.ScaleColorBySpeed.RGBScaleMax = Constants_Emitter_ScaleColorBySpeed_RGBScaleMax;
+	Context.Map.Constants.Emitter.ScaleColorBySpeed.AScaleMin = Constants_Emitter_ScaleColorBySpeed_AScaleMin;
+	Context.Map.Constants.Emitter.ScaleColorBySpeed.AScaleMax = Constants_Emitter_ScaleColorBySpeed_AScaleMax;
+	Context.Map.Constants.Emitter.ScaleMeshSizeBySpeed.SpeedThreshold = Constants_Emitter_ScaleMeshSizeBySpeed_SpeedThreshold;
+	Context.Map.Constants.Emitter.ScaleMeshSizeBySpeed.MinScaleFactor = Constants_Emitter_ScaleMeshSizeBySpeed_MinScaleFactor;
+	Context.Map.Constants.Emitter.ScaleMeshSizeBySpeed.MaxScaleFactor = Constants_Emitter_ScaleMeshSizeBySpeed_MaxScaleFactor;
+	Context.Map.Engine.Emitter.TotalSpawnedParticles = Engine_Emitter_TotalSpawnedParticles;
+	Context.Map.Emitter.RandomSeed = Emitter_RandomSeed;
+	ReadDataSets(Context);
+	Simulate(Context);
+	WriteDataSets(Context);
+	{
+	bool bValid = Context.Map.DataInstance.Alive;
+	int TmpWriteIndex = OutputIndex(0, true, bValid);
+	OutputDataFloat(0, 0, TmpWriteIndex, Context.Map.Particles.Age);
+	OutputDataFloat(0, 1, TmpWriteIndex, Context.Map.Particles.Color.r);
+	OutputDataFloat(0, 2, TmpWriteIndex, Context.Map.Particles.Color.g);
+	OutputDataFloat(0, 3, TmpWriteIndex, Context.Map.Particles.Color.b);
+	OutputDataFloat(0, 4, TmpWriteIndex, Context.Map.Particles.Color.a);
+	OutputDataFloat(0, 5, TmpWriteIndex, Context.Map.Particles.Initial.Color.r);
+	OutputDataFloat(0, 6, TmpWriteIndex, Context.Map.Particles.Initial.Color.g);
+	OutputDataFloat(0, 7, TmpWriteIndex, Context.Map.Particles.Initial.Color.b);
+	OutputDataFloat(0, 8, TmpWriteIndex, Context.Map.Particles.Initial.Color.a);
+	OutputDataFloat(0, 9, TmpWriteIndex, Context.Map.Particles.Initial.Scale.x);
+	OutputDataFloat(0, 10, TmpWriteIndex, Context.Map.Particles.Initial.Scale.y);
+	OutputDataFloat(0, 11, TmpWriteIndex, Context.Map.Particles.Initial.Scale.z);
+	OutputDataFloat(0, 12, TmpWriteIndex, Context.Map.Particles.Lifetime);
+	OutputDataFloat(0, 13, TmpWriteIndex, Context.Map.Particles.Mass);
+	OutputDataFloat(0, 14, TmpWriteIndex, Context.Map.Particles.MaterialRandom);
+	OutputDataFloat(0, 15, TmpWriteIndex, Context.Map.Particles.NormalizedAge);
+	OutputDataFloat(0, 16, TmpWriteIndex, Context.Map.Particles.Position.x);
+	OutputDataFloat(0, 17, TmpWriteIndex, Context.Map.Particles.Position.y);
+	OutputDataFloat(0, 18, TmpWriteIndex, Context.Map.Particles.Position.z);
+	OutputDataFloat(0, 19, TmpWriteIndex, Context.Map.Particles.PreviousVelocity.x);
+	OutputDataFloat(0, 20, TmpWriteIndex, Context.Map.Particles.PreviousVelocity.y);
+	OutputDataFloat(0, 21, TmpWriteIndex, Context.Map.Particles.PreviousVelocity.z);
+	OutputDataFloat(0, 22, TmpWriteIndex, Context.Map.Particles.Scale.x);
+	OutputDataFloat(0, 23, TmpWriteIndex, Context.Map.Particles.Scale.y);
+	OutputDataFloat(0, 24, TmpWriteIndex, Context.Map.Particles.Scale.z);
+	OutputDataFloat(0, 25, TmpWriteIndex, Context.Map.Particles.SpriteRotation);
+	OutputDataFloat(0, 26, TmpWriteIndex, Context.Map.Particles.SpriteSize.x);
+	OutputDataFloat(0, 27, TmpWriteIndex, Context.Map.Particles.SpriteSize.y);
+	OutputDataInt(0, 28, TmpWriteIndex, Context.Map.Particles.UniqueID);
+	OutputDataFloat(0, 29, TmpWriteIndex, Context.Map.Particles.Velocity.x);
+	OutputDataFloat(0, 30, TmpWriteIndex, Context.Map.Particles.Velocity.y);
+	OutputDataFloat(0, 31, TmpWriteIndex, Context.Map.Particles.Velocity.z);
+	}
+ExitStatScope( );
+}
+#line 703 "/Plugin/FX/Niagara/Private/NiagaraEmitterInstanceShader.usf"
+
+#if 0 /*BEGIN_RESOURCE_TABLES*/
+NULL, 0
+NULL, NULL, 0, 0
+#endif /*END_RESOURCE_TABLES*/
